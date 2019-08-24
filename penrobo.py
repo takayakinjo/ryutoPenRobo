@@ -3,7 +3,7 @@ import math
 import numpy as np
 import cv2
 import time
-# import Adafruit_PCA9685
+import Adafruit_PCA9685
 
 pen = 0 # 0:up or 1:down
 
@@ -19,27 +19,34 @@ r1 = 350/2
 r2 = 450/2
 r2e = 540/2
 
-speed = 2
+speed = 4
 
 img2 = np.ones((450, 450, 3), np.uint8)*255
 # img3 = np.ones((450, 450, 3), np.uint8)*255
 
 # servo settings usgin PCA9685
-# servo = Adafruit_PCA9685.PCA9685()
+servo = Adafruit_PCA9685.PCA9685()
 
 servo_min = 150  # Min pulse length out of 4096
 servo_max = 600  # Max pulse length out of 4096
 servo_mid = int((servo_max+servo_min)/2)
 
 # Set frequency to 60hz, good for servos.
-# servo.set_pwm_freq(60)
+servo.set_pwm_freq(60)
 
-pwm_pen_up = 200
-pwm_pen_down = 400
+pwm_pen_up = 390
+pwm_pen_up2 = 450
+pwm_pen_down = 355
 
-pwm1 = [150, 375, 600]
-pwm2 = [150, 375, 600]
-s1angle = [-120, 0, 30]
+pz = pwm_pen_up
+
+# 1 -120: 580 -45:385 30:210
+# 2  75:375
+#pwm1 = [385, 385, 385]
+#pwm2 = [150, 375, 600]
+pwm1 = [580, 385, 210]
+pwm2 = [580, 375, 210]
+s1angle = [-120, -45, 30]
 s2angle = [0, 75, 150]
 
 def calcPwm(pwmList, angleList, angle):
@@ -68,27 +75,48 @@ class penRobo:
         cv2.waitKey(10)
         
     def pen_up(x):
+        global pen, pz
         #print("Pen up")
-        global pen
         pen = 0
-        #　servo.set_pwm(2, 0, pwm_pen_up)
+        if pz < pwm_pen_up:
+            step = 1
+        else:
+            step = -1
+        for pz in range(pz, pwm_pen_up, step):
+            servo.set_pwm(2, 0, pz)
+            time.sleep(0.02)
+        servo.set_pwm(2, 0, pwm_pen_up)
+        pz = pwm_pen_up
+        
+    def pen_up2(x):
+        global pen, pz
+        #print("Pen up")
+        pen = 1
+        for pz in range(pz, pwm_pen_up2, 1):
+            servo.set_pwm(2, 0, pz)
+            time.sleep(0.02)
+        servo.set_pwm(2, 0, pwm_pen_up2)
+        pz = pwm_pen_up2
         
     def pen_down(x):
-        global pen
-        if pen == 0:
-            #print("Pen down")
-            pen = 1
-            # servo.set_pwm(2, 0, pwm_pen_down)
-
+        global pen, pz
+        #print("Pen down")
+        pen = 1
+        for pz in range(pz, pwm_pen_down, -1):
+            servo.set_pwm(2, 0, pz)
+            time.sleep(0.02)
+        servo.set_pwm(2, 0, pwm_pen_down)
+        pz = pwm_pen_down
+                
     def pen_up_if_nessesary(x1, y1):
         global px, py
         if px != x1 or py != y1:
             penRobo.pen_up(0)
         
-    def move_servo(x, x1, y1):
+    def move_servo(x, x1, y1, z1):
 
-        x2 = (x1/2) + 80
-        y2 = (y1/2) + 40
+        x2 = (x1/2.5) + 80
+        y2 = (y1/2.6) + 40
 
         if pen == 1:
             cv2.circle(img2, (int(x2), int(y2)), 2, (0,0,0), -1)
@@ -179,13 +207,14 @@ class penRobo:
         s1pwm = calcPwm(pwm1, s1angle, angle1)
         s2pwm = calcPwm(pwm2, s2angle, angle2)
 
-        print(angle1, s1pwm, angle2, s2pwm)
+        # print(angle1, s1pwm, angle2, s2pwm)
 
-        # servo.set_pwm(0, 0, s1pwm)
-        # servo.set_pwm(1, 0, s2pwm)
+        servo.set_pwm(0, 0, s1pwm)
+        servo.set_pwm(1, 0, s2pwm)
+        servo.set_pwm(2, 0, int(z1))
 
-        cv2.imshow("penRobo2", img3)
-        cv2.waitKey(1)
+        # cv2.imshow("penRobo2", img3)
+        # cv2.waitKey(1)
         
     def move_to(x, x1, y1):
         global px, py
@@ -200,7 +229,7 @@ class penRobo:
                     step = -speed
                 for xx in range(px, x1, step):
                     yy = py + dydx*(float(xx-px))
-                    penRobo.move_servo(0, xx, yy)
+                    penRobo.move_servo(0, xx, yy, pz)
             else:
                 dxdy = float(dx)/float(dy)
                 if py < y1:
@@ -209,19 +238,42 @@ class penRobo:
                     step = -speed
                 for yy in range(py, y1, step):
                     xx = px + dxdy*(float(yy-py))
-                    penRobo.move_servo(0, xx, yy)
+                    penRobo.move_servo(0, xx, yy, pz)
 
-        penRobo.move_servo(0, x1, y1) # make sure for the last
+        penRobo.move_servo(0, x1, y1, pz) # make sure for the last
         
         px = x1
         py = y1
         # print("move to (",px,", ",py,")")
+
+    def move_to3D(x, x1, y1, z1):
+        global px, py, pz
+        dx = x1 - px
+        dy = y1 - py
+        dz = z1 - pz
+        if dz != 0:
+            dxdz = float(dx)/float(dz)
+            dydz = float(dy)/float(dz)
+            if dz > 0:
+                step = 1
+            else:
+                step = -1
+            for zz in range(pz, z1, step):
+                xx = px + dxdz*(float(zz-pz))
+                yy = py + dydz*(float(zz-pz))
+                penRobo.move_servo(0, xx, yy, zz)
+                    
+        penRobo.move_servo(0, x1, y1, z1) # make sure for the last
+        
+        px = x1
+        py = y1
+        pz = z1
         
     def point(x, x1, y1):
         penRobo.pen_up_if_nessesary(x1, y1)
         penRobo.move_to(0, x1, y1)
         penRobo.pen_down(0)
-        penRobo.move_servo(0, x1, y1)
+        penRobo.move_servo(0, x1, y1, pz)
 
     def line(x, x1, y1, x2, y2):
         penRobo.pen_up_if_nessesary(x1, y1)
@@ -267,11 +319,35 @@ class penRobo:
         penRobo.move_to(0, int(xx), int(yy))
         
     def erase(x):
+        global pz
         print("erasing...")
         cv2.rectangle(img2, (20, 20), (425, 260), (255,255,255), thickness=-1)
         cv2.rectangle(img2, (20, 20), (425, 260), (0,0,0), thickness=1)
         cv2.imshow("penRobo2", img2)
         cv2.waitKey(10)
+
+        #up
+        penRobo.pen_up2(0)
+
+        penRobo.move_to(0, 770, 10)
+        penRobo.move_to3D(0, 770, 30, pwm_pen_down)
+
+#        penRobo.pen_down(0)
+        
+        penRobo.move_to(0, 0, 0)
+        penRobo.move_to(0, 500, 150)
+        penRobo.move_to(0, 0, 150)
+        penRobo.move_to(0, 500, 300)
+        penRobo.move_to(0, 0, 300)
+        penRobo.move_to(0, 450, 70)
+        penRobo.move_to(0, 770, 70)
+        penRobo.move_to3D(0, 770, 70, pwm_pen_up2)
+#        penRobo.pen_up2(0)
+        penRobo.move_to(0, 200, 200)
+
+    def home(x):
+        penRobo.pen_up2(0)
+        penRobo.move_to(0, 0, 0)
 
         
     def number(x, num):

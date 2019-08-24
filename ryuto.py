@@ -91,7 +91,7 @@ tenki_data = requests.get(url,params=payload).json()
 
 print(tenki_data['forecasts'][0]['date'])
 print(tenki_data['forecasts'][1]['telop'])
-print(tenki_data['forecasts'][1]['temperature']['max']['celsius'])
+#print(tenki_data['forecasts'][1]['temperature']['max']['celsius'])
 
 tenki = tenki_data['forecasts'][0]['telop']
 
@@ -113,9 +113,11 @@ ame()
 pr.erase()
 kumori()
 pr.erase()
-yuki()
-pr.erase()
+#yuki()
+#pr.erase()
 kaminari()
+pr.pen_up()
+pr.erase()
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
